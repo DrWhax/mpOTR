@@ -1,20 +1,14 @@
-I am aiming to create an mpOTR plugin for various IM's like irssi and pidgin.
-
-There have been several research papers to see how such a system will work, 
-I aim to research these papers first, create my own paper, let it get peer- 
-reviewed, renew the paper, build software as PoC, let it get peer reviewed,
-make first beta, first plugin, peer review etc etc
+There have been several research papers to see how such a system would work, 
+unfortunately, there hasn't been a fully fledged specification written.
+Together with various other researchers in the field, we aim to solve outstanding
+issues and solve them collaboratively.
 
 TODO:
-	* Research mpOTR paper, do we have any remarks to improve or adjust?
 	* Create our own research paper which can be reviewed by the community.
-	* After the review, 'Hack' multi-party support into 'libotr'.
-	* Create plugins for irssi/pidgin/Adium
-	* Debug time! * ...
+	* Create Threat-Model
+	* Build Alpha library and client.
 	* Profit \o/
-
-Devs:
-	DrWhax
+	* Fix attribution
 
 Communication channels:
 irc.oftc.net #otr #otr-dev
