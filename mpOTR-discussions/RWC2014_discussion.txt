@@ -1,0 +1,134 @@
+People present:
+Ben Laurie,
+Ian Goldberg,
+George Kadianakis,
+Nadim Kobeissi,
+Nadia Heninger,
+Tanja Lange,
+Joseph Bonneau
+Andy
+Moritz Bartl,
+Trevor Perrin,
+Daniel Gillmor,
+Clint Adams,
+Ximin Luo,
+
+Properties:
+
+How do we implement joins/leaves?
+
+ian: as discussed in '09 mpotr: whenever a join/leave occurs, it creates a new "room". participants choose to continue in old room or to move to new room.
+
+Drawing distinction between *protocol* properties and *ui* behaviors. For example when a room gains users, what happens if a client UI displays a new room memberhsip and one user disagrees/prohibits the change, what happens in the protocol?
+
+Ian: I want threading to exist in group chats. "In reference to that thing Andy said 10 lines ago"
+
+Nadim: implementing this "new member results in a new room and user has to agree" is a new UI paradigm, users don't have experience with this.  Tanja compares to Skype, when a new user joins, existing users can decide to continue with the room or can decide to leave (and user has to make a decision before continuing the conversation).
+
+AGL: Threading might cause conversation forking, where some people get different content and some people get the same content (confusion)
+
+DKG: If the UI only gives you a choice when someone is joining, then...? The Invite problem: what happens when a new user is invited, but one of the existing users either declines or doesn't respond to the invite protocol. One option is to require users to participate in the protocol, and exclude them from the room [after some period] to prevent DoS by inaction/disconnect.
+
+Nadim: Adding invitation requirements to the room means someone can join and just refuse all invites, causing DoS. Kicking by vote can have similar problems
+
+Ian: If invitations have to be approved by everyone in the room for someone new to join, then you automatically support kicking.
+
+Ian disagrees with mpOTR being asynchronous, that it is not possible to do a useful protocol 
+that is 
+
+
+How do invites work?  One option is to support "public" channels, "invite *".  The invite model works as follows for private rooms:  the people in the room unanimously decide to invite a new user. 
+
+Question: can you do N-of-M or superusers/room-owners? 
+A: possible, possibly, but not worth doing in this scenario. DKG suggests an attack on multiple outstanding invitations, where both Alice and Bob receive simultaneous invites. Alice accepts invite first and then prohibits Bob from joining. Ian has a countermeasure that I didn't catch.
+
+An alternative model is that any room member can generate an invite allowing a newuser to join; Ian strongly feels that this model isn't proper for mpotr.
+
+Nadim mentions the cryptocat model, where channels have a persistent identifier, and anyone who learns the identifier can join the room. Ian thinks this is pretty similar to the "invite *" model described above, wihch is a special case of the protocol Ian is suggesting.
+
+
+Quick digression into the group key agreement debate, curtailed for today.
+
+Ian: Do you have to be online right now to participate in the chat? Or can you go offline for an hour and then come back and catch up? If the session decryption key touches your disk, that's bad and can't happen. 
+
+Ian talks about what he calls the "Asynchronicty" property --- do you have to be online and participating in the chat in order to receive the transcript?  What happens if you are online for an hour, then go offline, spend one hour offline, and come back online?  The scenario has several possible permutations -- is the client still interacting with the protocol; is the 
+
+Ian: "when a client goes away, it's important that the client does not have a persistent handle to past conversations."  If someone leaves the room (either by END message or by simply ceasing participation in the protocol) when do they lose the ability to decrypt encrypted messages to the room?
+
+Comparison to Pidgin+OTR current implementation, suppose a user goes offline, OTR messages can be queued and delivered later without requiring re-OTR.
+
+Context switch to use cases -- Nadia suggests that there are radically different use cases that require different protocols. Ian agrees that there may be multiple protocols for multiple use cases, and respectfully requests that protocols that do not provide
+ * strong deniability
+ * forward secrecy
+should not use the name "OTR". Andy mentions the (terrible) name "secure multiparty chat" smpchat, Nadia says "persistent something something" and comes up with an even worse acronym
+
+
+Daniel suggests that there should be a cutoff. So if you drop off for 10 minutes you need to rekey, but if you drop off only for 5 minutes you can rejoin and get the history and everything is fine.
+
+Joseph Bonneau is trying to identify two properties: it would be nice if every time a message is accepted by every member, there is a rekey, and once that is completed the message is "in the past" and cannot be decrypted by a new member. Alternatively suppose that a member is in the room but unreachable, the rachet cannot move forward until that member re-participates in the room.
+
+djb suggests it's possible to build a protocol where Tanja going through the tunnel (for 15 minutes) causes the messages to be continued to be decryptable by Tanja's key, but the rachet can move forward for every other (still online) member in the room.
+
+ian agrees you can rachet public keys, which avoids the N^2 communication requirement that Trevor raised as a challenge for the per-user-rachet suggestion.
+
+Tanja and Nadim: There could be a UI element to maintain the order of messages even if messages are delivered out of order. Ticks, green circles... usefulf for other parts of the UI too
+
+Ben Laurie asks if we can get proofs -- can we get a proof that Tanja, even though offline for part of the conversation, saw a complete correct transcript afterwards?
+
+
+...
+
+
+Bottom line, Ian: Don't call it "OTR" if it doesn't provide deniability and forward secrecy.
+
+Nadia's proposal: "multiparty private interactive secret chat: mpPISS"
+
+Tanja's vague endorsement for "smpchat".
+
+... and we're out of time. Resuming tomorrow I suspect.
+
+Potential talking points:
+
+Use-cases
+
+Size
+
+- between friends (~15, <50)
+- private small org (~30, <200)
+- large semi-public forum (~150, <3000)
+
+Form
+
+- asynchronous/high-latency, long-lasting sessions, low availiability
+  - solving mpOTR for this scenario, seems to automatically solve it for the synchronous/low-latency scenario
+
+- maintain session state across devices
+  - no-one seems to be doing this at the moment. a naive implementation could just treat the other device as a separate participant, but this does not fit well into XMPP's "resource" primitive
+
+Security properties
+
+Multiparty
+
+- message authenticity against other participants
+- transcript consistency across all participants
+  - what level of consistency (how many missed messages is acceptable?)
+- robust join/leave and invite/kick algorithms
+
+Messaging
+
+- message confidentiality against network attacker
+- message authenticity against network attacker
+
+- forward secrecy = past message confidentiality against NA w/ current-secret-compromise on recipient(s) and/or transmitter
+- "future secrecy" = future message confidentiality against NA w/ current-secret-compromise on transmitter[1]
+- "deniability" = repudiability of ciphertext authenticity against NA w/ secret-compromise on recipient(s)
+
+Protocol
+
+- detect and recover dropped/reordered messages
+- detect and ignore replayed messages
+
+Info-theory
+
+- no information leakage against timing/length attacks
+

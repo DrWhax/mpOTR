@@ -1,0 +1,128 @@
+mpOTR discussions at 30C3
+
+Deniability
+deniability - tricky in mpOTR - leads to less efficient protocol
+May be useful to develop a 'multiparty encrypted chat' spec without deniability that can come to existance faster
+OTR chat records have been used in court, and have been accepted as an evidence, so denyability does not always help.-> Quinn - deniability maybe not relevant in the real world
+
+Result: 2 specs possibly
+
+Resources
+https://github.com/cryptocat/mpOTR
+http://lists.crypto.cat/pipermail/mpotr-dev/ (cryptocat specific discussions)
+http://lists.cypherpunks.ca/pipermail/otr-dev/ (mpotr main mailing list)
+https://etherpad.mozilla.org/mpotrlol mpOTR brainstorming session from OHM2013
+
+    Moxie's ratcheting: https://whispersystems.org/blog/advanced-ratcheting/
+
+Key agreement
+The part of the MPOTR spec that isn't fully developed at this point is key exchange mostly, naive approach is O(n^2)
+
+
+Message order verifiability
+couldn't you include a hash of your own local chat history? -> key agreement and authentication is the focus of SMP >(channel verifiability is a separate issue)
+some solutions to ensuring consistent message ordering were discussed recently on otr-dev: 
+modelling history as a DAG, like git commits, with consistency proofs on that data structure.  that seems promising.  "OldBlue: Causal Broadcast in a Mutually Suspicious Environment" by Gundy & Chen.
+The way to address the ordering problem is to sidestep it: you either elect one person and use their total ordering, or you use partial ordering.
+Google Spanner has an ordering mechanism based on clock synchronization, with ~10ms as their concurrency window, which might be good enough for human timescales
+
+Papers
+OldBlue: http://matt.singlethink.net/projects/mpotr/oldblue-draft.pdf
+Improved Deniable Signature for key exchange: http://matt.singlethink.net/projects/mpotr/improved-dske.pdf
+
+Threat model
+We need a simple description of the security properties and threat model.  See paper: "Finite State Security Analysis" by Joseph Bonneau
+
+Next steps?
+
+Transport Requirements
+OTR is easy to implement in many protocols, e.g. Twitter, XMPP, proprietary chat messaging system; mpOTR is different because depending on how you spec, it might require individual messages to have key exchanges etc. Might be hard to map to IRC, XMPP group chat, Facebook messages, etc.
+
+Does it make sense to mpOTR spec that's transport agnostic?  What would be needed to achieve that?
+  1-to-1 is easy because any comm protocol must support 1-to-1
+  timestamps can't be consistent without a single central server
+  you can get close, but you can't solve byzantine clock agreement
+  google came out with spanner/truetime to do distributed ordering. might work at human time-scale even without well synchronized clocks.
+  
+
+Ejection (Kickban)
+In any semipublic channel, you're eventually going to have to kick someone out.  How do?
+Two models:
+Exclude someone from speaking in a conversation
+Make someone invisible without letting them know they've been excluded
+Ignore someone (don't encrypt for them)?
+Really hard if there's a single key for everyone, then you have to switch everyone to a new session key, complicated
+The ignore button has some problems, recently removed
+Legal experience: even when there is bad crypto, the way people have been getting caught is by a confederate.  Infiltration is a much bigger problem than crypto right now; that will probably be true for a long time.  Not having tools to enable social negotiation is a big problem.
+Isn't this the same as revokable broadcast encryption?  There are schemes for blu-ray, tv broadcast that seem to do this.  Worth looking into how they do it?
+How does kickbanning differ from a person leaving?
+Difference between kicking and leaving is that if you're kicked, you can't come back.
+You don't need a kick primitive; you can do it with just an invite primitive (invite everyone except one person).
+The problem for mpOTR is to renegotiate a key so that a person is excluded.
+Should also be done somehow when someone loses connectivity.
+Leaving and joining:
+Leaving is hard because we need to negotiate a new key
+What happens when someone joins late in a chat where a key has already been agreed?  Instead of having one key, use that key to build a hashchain.  When you agree to a key, use a hashchain, for each 1 second of wall clock time use an item in the chain, the new person gets the key for the second during which he joined. So he can move forward in the key order but not backward.
+Sounds a bit like Moxie's ratchet proposal?  Hash-chaining is one way of moving forward without being able to go back.  In Silent Circle, there is the SCIMP ratchet.  TextSecure is doing work on a two-step DH ratchet.  (google "moxie ratchet")
+Currently in OTR, Alice sends g^x to Bob and then the message.  Upon responding, Bob acknowledges g^x and uses that when he responds afterward.  For mpOTR do you need to acknowledge keys along the way?  In OTR the other person can acknowledge when they respond, but for mpOTR does everyone have to respond with an acknowledgement?
+problem when people disconnected silently. That can DoS the whole conversation
+
+What are the use cases?
+
+How many participants do we think it should be able to handle to be useful?
+Use cases:
+1. Conspiracy
+2. Replace fucking IRC
+3. A newsroom: potentially 100 users, imagine a news org being pursued by a private investigator or a corporation
+  - It's a long-lived room, membership roster, will have key compromises so revocation is important
+  - If it's an organization, they would trust their own server right?
+      - But they tend to trust servers that are hosted not on their premises
+      - I've seen news orgs e-mail the VPN password around...
+      - Sometimes the social leak is not the main problem
+    
+e.g. Chevron is trying to use US RICO laws against the people who are trying to make Chevron obey a court order.
+
+Migrating (client agility)
+
+What about clients that want to move from one system to another?  E.g. talking on a phone, need to move to a computer.
+
+Usability note from observing people using OTR:
+When people run into a key management problem, they usually assume the client is broken.
+
+Possible solution: Have it out of the OTR spec. If a user starts a second client, he can transfer all the keys off-band.
+
+Gcouprie says:
+Would be useful to have an mpOTR voting system (e.g. voting to exclude someone)
+
+-Multiple people approve who can join?
+-Single channel owner?
+-automatic key renegotiation
+-kickban
+-power delegation
+- disconnection detection: some nodes may discover than other ones dropped out, and ask for a key renegotiation
+  - One of the mistakes of IRC is that the channel owner needs to be more sophisticated than a regular user.  Make the operations of a channel owner really simple and rudimentary, don't make it too complicated.
+Voting structures imply organizational structures (e.g. totalitarian, consensus, consensus minus one, etc.)
+    those can be channel parameters (ie, needs approval from the three moderators, or majority, or unanimity, or whatever)
+It will always be useful for someone to be able to be a moderator.
+
+We love more features and options.  But users just want it to go.  Often, making simple decisions and forcing people into it is more merciful than giving them numerous options.
+
+As a protocol designer and from working products people use: it's often beneficial to keep as much flexibility as you reasonably can (not too much, or it will make implementations too hard!) in the spec, but don't prematurely constrain things in the spec; but then when you build the UX, pick one thing and do one thing well.  Don't try to do everything that's offered in the spec in the UX.
+
+To handle ejection, you need to either have a voting system or a moderator.
+
+Specs influence social effects.  A good spec might want to make relevant suggestions.
+
+Voting can also be implemented just by talking in the channel with a moderator or a bot.  So maybe it doesn't need to be in the spec.
+
+Using Tor, you might have lots of issues.  Netsplits are messy.  Maybe with warnings, workarounds, but we need to accommodate the possibility of someone DoS attacking the channel.
+    splits will happen. They are not an exception, and must be handled carefully. You cannot a priori detect if a split is just a network error, or malicious attack
+
+Participants on Twitter:
+@e_tews https://twitter.com/e_tews
+@kiserene
+@xnyhps
+@cwlcks https://twitter.com/cwlcks
+@gcouprie
+@FredericJacobs
+@willscott
